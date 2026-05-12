@@ -1,0 +1,41 @@
+name: Gemini AI README Generator
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: # Cho phép chạy thủ công bằng nút bấm
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Quan trọng để GitHub Actions có quyền sửa file README
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate Content with Gemini
+        id: gemini
+        run: |
+          # Dùng curl để gọi API Gemini 1.5 Flash (miễn phí)
+          RESPONSE=$(curl -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${{ secrets.GEMINI_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "contents": [{
+                "parts":[{
+                  "text": "Hãy viết một file README.md chuyên nghiệp cho dự án Spring Boot này. Bao gồm các mục: Giới thiệu, Techstack (Java, Spring Boot, MySQL), Hướng dẫn chạy và API endpoint. Viết bằng tiếng Việt."
+                }]
+              }]
+            }')
+          
+          # Trích xuất nội dung từ JSON trả về
+          echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' > README.md
+
+      - name: Commit and Push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "docs: auto update README by Gemini AI" || echo "No changes to commit"
+          git push
